@@ -1,9 +1,9 @@
-const CACHE_NAME = 'scandroid-v2';
+const CACHE_NAME = 'scandroid-v3';
 const ASSETS = [
     './',
     './index.html',
-    './style.css',
-    './app.js',
+    './style.css?v=3',
+    './app.js?v=3',
     './manifest.json',
     './icons/icon-192.png',
     './icons/icon-512.png',
@@ -40,17 +40,35 @@ self.addEventListener('activate', (e) => {
     self.clients.claim();
 });
 
+// Network-first for own files, cache-first for CDN
 self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        caches.match(e.request).then((cached) => {
-            if (cached) return cached;
-            return fetch(e.request).then((resp) => {
-                if (resp && resp.status === 200 && resp.type === 'basic') {
+    const url = e.request.url;
+    const isCDN = url.includes('cdnjs.cloudflare.com') || url.includes('unpkg.com');
+
+    if (isCDN) {
+        // Cache-first for CDN (they never change)
+        e.respondWith(
+            caches.match(e.request).then((cached) => {
+                if (cached) return cached;
+                return fetch(e.request).then((resp) => {
+                    if (resp && resp.status === 200) {
+                        const clone = resp.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+                    }
+                    return resp;
+                });
+            })
+        );
+    } else {
+        // Network-first for our own files (always get latest)
+        e.respondWith(
+            fetch(e.request).then((resp) => {
+                if (resp && resp.status === 200) {
                     const clone = resp.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
                 }
                 return resp;
-            });
-        })
-    );
+            }).catch(() => caches.match(e.request))
+        );
+    }
 });
