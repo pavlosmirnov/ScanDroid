@@ -292,6 +292,26 @@ body {
 .result-not-found #result-status { color: var(--red); }
 .result-duplicate #result-status { color: var(--yellow); }
 
+#result-details {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.result-detail {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    opacity: 0.9;
+}
+
+.list-detail {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
 /* Last scan info */
 #last-scan-info {
     padding: 8px 16px;

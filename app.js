@@ -1,7 +1,8 @@
 // --- State ---
 const state = {
-    targetCodes: new Set(),
-    foundCodes: new Set(),
+    targetCodes: new Map(),   // code → [col1, col2, col3]
+    foundCodes: new Map(),    // code → [col1, col2, col3]
+    rowData: new Map(),       // all imported rows: code → [col1, col2, col3]
     history: [],
     scanning: false,
     paused: false,
@@ -93,18 +94,27 @@ function showScanResult(type, code) {
     const el = $('#scan-result');
     el.className = `scan-result result-${type}`;
 
+    // Get row info for found/duplicate items
+    const rowInfo = state.rowData.get(code);
+    const detailHtml = rowInfo
+        ? rowInfo.map((c) => `<div class="result-detail">${escapeHtml(String(c))}</div>`).join('')
+        : '';
+
     if (type === 'found') {
         $('#result-icon').textContent = '✅';
         $('#result-status').textContent = 'FOUND';
         $('#result-code').textContent = code;
+        $('#result-details').innerHTML = detailHtml;
     } else if (type === 'not-found') {
         $('#result-icon').textContent = '❌';
         $('#result-status').textContent = 'NOT IN TARGET LIST';
         $('#result-code').textContent = code;
+        $('#result-details').innerHTML = '';
     } else if (type === 'duplicate') {
         $('#result-icon').textContent = '⚠️';
         $('#result-status').textContent = 'ALREADY FOUND';
         $('#result-code').textContent = code;
+        $('#result-details').innerHTML = detailHtml;
     }
 
     clearTimeout(resultTimeout);
@@ -114,15 +124,20 @@ function showScanResult(type, code) {
 }
 
 // --- File import ---
-function parseCSV(text) {
-    const codes = [];
+// rows: array of arrays, each row = [col1, col2, col3, ...]
+function parseCSVRows(text) {
+    const rows = [];
     const lines = text.split(/\r?\n/);
     for (const line of lines) {
-        const cols = line.split(/[,;\t]/);
-        const val = cols[0]?.trim();
-        if (val && val.length > 0) codes.push(val);
+        const cols = line.split(/[,;\t]/).map((c) => c.trim());
+        if (cols[0] && cols[0].length > 0) rows.push(cols);
     }
-    return codes;
+    return rows;
+}
+
+function isHeaderRow(row) {
+    const first = String(row[0]).toLowerCase();
+    return first.includes('code') || first.includes('product') || first.includes('артикул') || first.includes('код') || first === '#' || first === 'name' || first === 'sku';
 }
 
 function handleFile(file) {
@@ -131,11 +146,11 @@ function handleFile(file) {
     if (ext === 'csv' || ext === 'tsv') {
         const reader = new FileReader();
         reader.onload = (e) => {
-            const codes = parseCSV(e.target.result);
-            if (codes.length > 0 && /[a-zA-Z]/.test(codes[0]) === false || codes[0].toLowerCase().includes('code') || codes[0].toLowerCase().includes('product') || codes[0].toLowerCase().includes('артикул')) {
-                codes.shift();
+            const rows = parseCSVRows(e.target.result);
+            if (rows.length > 0 && isHeaderRow(rows[0])) {
+                rows.shift();
             }
-            loadCodes(codes);
+            loadRows(rows);
         };
         reader.readAsText(file);
     } else {
@@ -144,33 +159,41 @@ function handleFile(file) {
             const wb = XLSX.read(e.target.result, { type: 'array' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-            const codes = [];
+            const rows = [];
             for (let i = 0; i < data.length; i++) {
-                const val = data[i]?.[0];
+                const row = data[i];
+                const val = row?.[0];
                 if (val !== undefined && val !== null && String(val).trim().length > 0) {
-                    codes.push(String(val).trim());
+                    rows.push(row.map((c) => (c !== undefined && c !== null) ? String(c).trim() : ''));
                 }
             }
-            if (codes.length > 0) {
-                const first = codes[0].toLowerCase();
-                if (first.includes('code') || first.includes('product') || first.includes('артикул') || first.includes('код') || first === '#') {
-                    codes.shift();
-                }
+            if (rows.length > 0 && isHeaderRow(rows[0])) {
+                rows.shift();
             }
-            loadCodes(codes);
+            loadRows(rows);
         };
         reader.readAsArrayBuffer(file);
     }
 }
 
-function loadCodes(codes) {
-    const unique = [...new Set(codes.filter((c) => c.length > 0))];
-    state.targetCodes = new Set(unique);
-    state.foundCodes = new Set();
+function loadRows(rows) {
+    state.targetCodes = new Map();
+    state.foundCodes = new Map();
+    state.rowData = new Map();
     state.history = [];
 
+    for (const row of rows) {
+        const code = String(row[0]).trim();
+        if (code.length === 0) continue;
+        if (state.targetCodes.has(code)) continue; // skip duplicates
+        // Store first 3 columns (skip col 0 which is the code itself)
+        const details = row.slice(1, 3).filter((c) => c && c.length > 0);
+        state.targetCodes.set(code, details);
+        state.rowData.set(code, details);
+    }
+
     $('#import-status').classList.remove('hidden');
-    $('#import-count').textContent = `${unique.length} product codes loaded`;
+    $('#import-count').textContent = `${state.targetCodes.size} product codes loaded`;
     $('#btn-start-scan').classList.remove('hidden');
     $('#btn-start-scan').disabled = false;
 
@@ -179,11 +202,19 @@ function loadCodes(codes) {
 
 // --- Demo mode ---
 function loadDemo() {
-    const demoCodes = [];
-    for (let i = 1; i <= 20; i++) {
-        demoCodes.push(`W25-GZ${String(2000 + i).padStart(4, '0')}`);
+    const names = ['Bearing 6205', 'Seal Kit', 'Filter Element', 'O-Ring Set', 'Shaft Collar',
+        'Pump Gear', 'Valve Spring', 'Gasket Pack', 'Bolt M12x40', 'Nut M10',
+        'Washer 16mm', 'Piston Ring', 'Drive Belt', 'Coupling Hub', 'Bushing 25mm',
+        'Pin Dowel', 'Retainer Clip', 'Spacer 8mm', 'Bracket L', 'Cap End'];
+    const locations = ['A1-01', 'A1-02', 'A2-03', 'B1-01', 'B1-05',
+        'B2-02', 'C1-01', 'C1-04', 'C2-03', 'D1-01',
+        'D1-02', 'D2-05', 'E1-01', 'E1-03', 'E2-02',
+        'F1-01', 'F1-04', 'F2-01', 'G1-02', 'G1-05'];
+    const rows = [];
+    for (let i = 0; i < 20; i++) {
+        rows.push([`W25-GZ${String(2001 + i).padStart(4, '0')}`, names[i], locations[i]]);
     }
-    loadCodes(demoCodes);
+    loadRows(rows);
 }
 
 // --- Scanner ---
@@ -277,9 +308,10 @@ function onScanSuccess(decodedText) {
         showScanResult('duplicate', code);
         state.history.unshift({ code, type: 'duplicate', time });
     } else if (state.targetCodes.has(code)) {
-        // Found
+        // Found — move from target to found
+        const details = state.targetCodes.get(code);
         state.targetCodes.delete(code);
-        state.foundCodes.add(code);
+        state.foundCodes.set(code, details);
         flash('green');
         soundFound();
         vibrate([100]);
@@ -327,6 +359,14 @@ function escapeHtml(text) {
 }
 
 // --- Results ---
+function formatRowHtml(code, details) {
+    const parts = [escapeHtml(code)];
+    if (details && details.length > 0) {
+        parts.push(`<span class="list-detail">${details.map((d) => escapeHtml(d)).join(' · ')}</span>`);
+    }
+    return parts.join(' ');
+}
+
 function showResults() {
     showScreen('results');
 
@@ -341,7 +381,9 @@ function showResults() {
     const foundList = $('#found-list');
     if (found.length > 0) {
         $('#found-list-section').classList.remove('hidden');
-        foundList.innerHTML = found.map((c) => `<div class="list-item">${escapeHtml(c)}</div>`).join('');
+        foundList.innerHTML = found.map(([code, details]) =>
+            `<div class="list-item">${formatRowHtml(code, details)}</div>`
+        ).join('');
     } else {
         $('#found-list-section').classList.add('hidden');
     }
@@ -349,16 +391,23 @@ function showResults() {
     const remainingList = $('#remaining-list');
     if (remaining.length > 0) {
         $('#remaining-list-section').classList.remove('hidden');
-        remainingList.innerHTML = remaining.map((c) => `<div class="list-item">${escapeHtml(c)}</div>`).join('');
+        remainingList.innerHTML = remaining.map(([code, details]) =>
+            `<div class="list-item">${formatRowHtml(code, details)}</div>`
+        ).join('');
     } else {
         $('#remaining-list-section').classList.add('hidden');
     }
 }
 
 // --- Export ---
-function exportCSV(data, filename) {
+function exportCSV(dataMap, filename) {
     const bom = '﻿';
-    const csv = bom + 'Product Code\n' + data.join('\n');
+    const lines = ['Code,Column 2,Column 3'];
+    for (const [code, details] of dataMap) {
+        const cols = [code, ...(details || [])];
+        lines.push(cols.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
+    }
+    const csv = bom + lines.join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -411,16 +460,17 @@ $('#btn-finish').addEventListener('click', async () => {
 });
 
 $('#btn-export-found').addEventListener('click', () => {
-    exportCSV([...state.foundCodes], 'found_products.csv');
+    exportCSV(state.foundCodes, 'found_products.csv');
 });
 
 $('#btn-export-remaining').addEventListener('click', () => {
-    exportCSV([...state.targetCodes], 'remaining_products.csv');
+    exportCSV(state.targetCodes, 'remaining_products.csv');
 });
 
 $('#btn-new-session').addEventListener('click', () => {
     state.targetCodes.clear();
     state.foundCodes.clear();
+    state.rowData.clear();
     state.history = [];
     state.lastScanTime = 0;
 
