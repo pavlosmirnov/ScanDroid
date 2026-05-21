@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Warehouse barcode scanner and product matcher">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>ScanDroid</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header id="header">
+            <h1>ScanDroid</h1>
+            <div id="stats-bar">
+                <span id="stat-total" title="Total">📦 <b>0</b></span>
+                <span id="stat-found" title="Found">✅ <b>0</b></span>
+                <span id="stat-remaining" title="Remaining">🔍 <b>0</b></span>
+            </div>
+        </header>
+
+        <!-- Screen: Import -->
+        <section id="screen-import" class="screen active">
+            <div class="screen-content">
+                <div class="import-icon">📋</div>
+                <h2>Import Target List</h2>
+                <p class="hint">Upload .xlsx or .csv file with product codes in the first column</p>
+
+                <label for="file-input" class="btn btn-primary btn-large">
+                    SELECT FILE
+                </label>
+                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" hidden>
+
+                <div id="import-status" class="hidden">
+                    <div id="import-count"></div>
+                </div>
+
+                <button id="btn-start-scan" class="btn btn-success btn-large hidden" disabled>
+                    START SCANNING
+                </button>
+
+                <div id="demo-section">
+                    <button id="btn-demo" class="btn btn-outline btn-small">
+                        DEMO MODE (no file)
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Screen: Scanner -->
+        <section id="screen-scanner" class="screen">
+            <div id="scanner-container">
+                <div id="reader"></div>
+                <div id="scan-line"></div>
+            </div>
+
+            <div id="scan-result" class="scan-result hidden">
+                <div id="result-icon"></div>
+                <div id="result-status"></div>
+                <div id="result-code"></div>
+            </div>
+
+            <div id="last-scan-info">
+                <span>Last: <b id="last-code">—</b></span>
+            </div>
+
+            <div id="scanner-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="scanner-found">0</div>
+                    <div class="stat-label">Found</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="scanner-remaining">0</div>
+                    <div class="stat-label">Remaining</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="scanner-total">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+
+            <div id="scanner-controls">
+                <button id="btn-history" class="btn btn-outline">HISTORY</button>
+                <button id="btn-pause" class="btn btn-warning">PAUSE</button>
+                <button id="btn-finish" class="btn btn-outline">FINISH</button>
+            </div>
+        </section>
+
+        <!-- Screen: History -->
+        <section id="screen-history" class="screen">
+            <div class="screen-header">
+                <button id="btn-back-from-history" class="btn btn-outline btn-small">← BACK</button>
+                <h2>Scan History</h2>
+            </div>
+            <div id="history-tabs">
+                <button class="tab-btn active" data-tab="all">All</button>
+                <button class="tab-btn" data-tab="found">Found</button>
+                <button class="tab-btn" data-tab="not-found">Not Found</button>
+                <button class="tab-btn" data-tab="duplicate">Duplicates</button>
+            </div>
+            <div id="history-list"></div>
+        </section>
+
+        <!-- Screen: Results -->
+        <section id="screen-results" class="screen">
+            <div class="screen-content">
+                <h2>Session Complete</h2>
+
+                <div id="results-summary">
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="final-found">0</div>
+                        <div class="result-stat-label">Found</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="final-not-found">0</div>
+                        <div class="result-stat-label">Not Found</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="final-remaining">0</div>
+                        <div class="result-stat-label">Remaining</div>
+                    </div>
+                </div>
+
+                <div id="remaining-list-section" class="hidden">
+                    <h3>Remaining Items</h3>
+                    <div id="remaining-list"></div>
+                </div>
+
+                <div id="found-list-section">
+                    <h3>Found Items</h3>
+                    <div id="found-list"></div>
+                </div>
+
+                <div class="results-actions">
+                    <button id="btn-export-found" class="btn btn-primary btn-large">EXPORT FOUND (CSV)</button>
+                    <button id="btn-export-remaining" class="btn btn-outline btn-large">EXPORT REMAINING (CSV)</button>
+                    <button id="btn-new-session" class="btn btn-warning btn-large">NEW SESSION</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flash overlay for scan feedback -->
+        <div id="flash-overlay" class="hidden"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
