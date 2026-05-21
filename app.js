@@ -306,7 +306,8 @@ function onScanSuccess(decodedText) {
         soundDuplicate();
         vibrate([50, 30, 50]);
         showScanResult('duplicate', code);
-        state.history.unshift({ code, type: 'duplicate', time });
+        const dupDetails = state.rowData.get(code) || [];
+        state.history.unshift({ code, type: 'duplicate', time, details: dupDetails });
     } else if (state.targetCodes.has(code)) {
         // Found — move from target to found
         const details = state.targetCodes.get(code);
@@ -316,7 +317,7 @@ function onScanSuccess(decodedText) {
         soundFound();
         vibrate([100]);
         showScanResult('found', code);
-        state.history.unshift({ code, type: 'found', time });
+        state.history.unshift({ code, type: 'found', time, details: details || [] });
         updateStats();
     } else {
         // Not in list
@@ -324,7 +325,7 @@ function onScanSuccess(decodedText) {
         soundNotFound();
         vibrate([50, 50, 50]);
         showScanResult('not-found', code);
-        state.history.unshift({ code, type: 'not-found', time });
+        state.history.unshift({ code, type: 'not-found', time, details: [] });
     }
 }
 
@@ -342,12 +343,20 @@ function renderHistory(filter = 'all') {
 
     list.innerHTML = items
         .map(
-            (h) => `
+            (h) => {
+                const detailStr = (h.details && h.details.length > 0)
+                    ? `<div class="history-details">${h.details.map((d) => escapeHtml(d)).join(' · ')}</div>`
+                    : '';
+                return `
         <div class="history-item type-${h.type}">
             <div class="history-dot"></div>
-            <div class="history-code">${escapeHtml(h.code)}</div>
+            <div class="history-info">
+                <div class="history-code">${escapeHtml(h.code)}</div>
+                ${detailStr}
+            </div>
             <div class="history-time">${h.time}</div>
-        </div>`
+        </div>`;
+            }
         )
         .join('');
 }
