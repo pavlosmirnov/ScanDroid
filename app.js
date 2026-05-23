@@ -821,6 +821,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 
 $('#btn-finish').addEventListener('click', async () => {
     await stopScanner();
+    clearSession();
     showResults();
 });
 
@@ -877,7 +878,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v10';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -948,5 +949,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=9').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=10').catch(() => {});
 }
