@@ -481,21 +481,6 @@ function loadRows(rows) {
 }
 
 // --- Demo mode ---
-function loadDemo() {
-    const names = ['Bearing 6205', 'Seal Kit', 'Filter Element', 'O-Ring Set', 'Shaft Collar',
-        'Pump Gear', 'Valve Spring', 'Gasket Pack', 'Bolt M12x40', 'Nut M10',
-        'Washer 16mm', 'Piston Ring', 'Drive Belt', 'Coupling Hub', 'Bushing 25mm',
-        'Pin Dowel', 'Retainer Clip', 'Spacer 8mm', 'Bracket L', 'Cap End'];
-    const locations = ['A1-01', 'A1-02', 'A2-03', 'B1-01', 'B1-05',
-        'B2-02', 'C1-01', 'C1-04', 'C2-03', 'D1-01',
-        'D1-02', 'D2-05', 'E1-01', 'E1-03', 'E2-02',
-        'F1-01', 'F1-04', 'F2-01', 'G1-02', 'G1-05'];
-    const rows = [];
-    for (let i = 0; i < 20; i++) {
-        rows.push([`W25-GZ${String(2001 + i).padStart(4, '0')}`, names[i], locations[i]]);
-    }
-    loadRows(rows);
-}
 
 // --- Scanner ---
 let html5QrCode = null;
@@ -822,8 +807,6 @@ $('#file-input').addEventListener('change', (e) => {
     if (file) handleFile(file);
 });
 
-$('#btn-demo').addEventListener('click', () => loadDemo());
-
 $('#btn-start-scan').addEventListener('click', () => {
     state.mode = 'match';
     startScanner();
@@ -981,7 +964,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -1011,10 +994,12 @@ $('#btn-update').addEventListener('click', async () => {
     const saved = loadSession();
     if (!saved) return;
 
-    const hasData = (saved.history && saved.history.length > 0) ||
-        (saved.targetCodes && saved.targetCodes.length > 0) ||
-        (saved.collectedCodes && saved.collectedCodes.length > 0);
-    if (!hasData) return;
+    // Only offer restore if there were actual scans
+    const hasScans = saved.history && saved.history.length > 0;
+    if (!hasScans) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+    }
 
     // Build info text
     const mode = saved.mode === 'collect' ? 'Collect' : 'Match';
@@ -1052,5 +1037,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=13').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=14').catch(() => {});
 }
