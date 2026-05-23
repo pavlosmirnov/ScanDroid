@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <title>ScanDroid</title>
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
     <div id="app">
@@ -19,7 +19,7 @@
         <header id="header">
             <div id="header-left">
                 <h1>ScanDroid</h1>
-                <span id="app-version">v8</span>
+                <span id="app-version">v9</span>
             </div>
             <div id="stats-bar">
                 <span id="stat-total" title="Total">📦 <b>0</b></span>
@@ -64,6 +64,12 @@
                     </button>
                 </div>
 
+                <div id="saved-lists-section">
+                    <button id="btn-saved-lists" class="btn btn-outline btn-large">
+                        📂 SAVED SESSIONS
+                    </button>
+                </div>
+
                 <div id="demo-section">
                     <button id="btn-demo" class="btn btn-outline btn-small">
                         DEMO MODE (match)
@@ -90,6 +96,11 @@
                 <span>Last: <b id="last-code">—</b></span>
             </div>
 
+            <div id="progress-bar-container" class="hidden">
+                <div id="progress-bar"></div>
+                <span id="progress-text">0%</span>
+            </div>
+
             <div id="scanner-stats">
                 <div class="stat-card">
                     <div class="stat-value" id="scanner-found">0</div>
@@ -107,6 +118,8 @@
 
             <div id="scanner-controls">
                 <button id="btn-history" class="btn btn-outline">HISTORY</button>
+                <button id="btn-manual" class="btn btn-outline">✏️</button>
+                <button id="btn-save-session" class="btn btn-outline">💾</button>
                 <button id="btn-pause" class="btn btn-warning">PAUSE</button>
                 <button id="btn-finish" class="btn btn-outline">FINISH</button>
             </div>
@@ -165,6 +178,45 @@
             </div>
         </section>
 
+        <!-- Screen: Saved sessions -->
+        <section id="screen-saved" class="screen">
+            <div class="screen-header">
+                <button id="btn-back-from-saved" class="btn btn-outline btn-small">← BACK</button>
+                <h2>Saved Sessions</h2>
+            </div>
+            <div id="saved-list"></div>
+            <div class="saved-empty hidden" id="saved-empty">
+                <p>No saved sessions yet</p>
+                <p class="hint">Sessions are saved automatically. Use the SAVE button on the scanner screen to name them.</p>
+            </div>
+        </section>
+
+        <!-- Save session name dialog -->
+        <div id="save-dialog" class="hidden">
+            <div class="dialog-box">
+                <div class="dialog-icon">💾</div>
+                <h3>Save Session</h3>
+                <input type="text" id="save-name" class="dialog-input" placeholder="e.g. Warehouse A">
+                <div class="dialog-buttons">
+                    <button id="btn-save-confirm" class="btn btn-success btn-large">SAVE</button>
+                    <button id="btn-save-cancel" class="btn btn-outline btn-large">CANCEL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual code input dialog -->
+        <div id="manual-dialog" class="hidden">
+            <div class="dialog-box">
+                <div class="dialog-icon">✏️</div>
+                <h3>Enter Code</h3>
+                <input type="text" id="manual-code" class="dialog-input" placeholder="W25-GZ2054" autocapitalize="characters" autocomplete="off" spellcheck="false">
+                <div class="dialog-buttons">
+                    <button id="btn-manual-confirm" class="btn btn-success btn-large">SUBMIT</button>
+                    <button id="btn-manual-cancel" class="btn btn-outline btn-large">CANCEL</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Export filename dialog -->
         <div id="export-dialog" class="hidden">
             <div class="dialog-box">
@@ -198,6 +250,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>

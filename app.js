@@ -60,6 +60,105 @@ function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
 }
 
+// --- Named sessions ---
+const SAVED_SESSIONS_KEY = 'scandroid_saved_sessions';
+
+function getSavedSessions() {
+    try {
+        return JSON.parse(localStorage.getItem(SAVED_SESSIONS_KEY) || '[]');
+    } catch (_) { return []; }
+}
+
+function saveNamedSession(name) {
+    const sessions = getSavedSessions();
+    const data = {
+        id: Date.now(),
+        name: name,
+        mode: state.mode,
+        targetCodes: [...state.targetCodes],
+        foundCodes: [...state.foundCodes],
+        rowData: [...state.rowData],
+        collectedCodes: [...state.collectedCodes],
+        history: state.history,
+        savedAt: Date.now(),
+    };
+    // Replace existing with same name or add new
+    const idx = sessions.findIndex((s) => s.name === name);
+    if (idx >= 0) sessions[idx] = data;
+    else sessions.unshift(data);
+    localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(sessions));
+}
+
+function deleteNamedSession(id) {
+    const sessions = getSavedSessions().filter((s) => s.id !== id);
+    localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(sessions));
+}
+
+function renderSavedSessions() {
+    const sessions = getSavedSessions();
+    const list = $('#saved-list');
+    const empty = $('#saved-empty');
+
+    if (sessions.length === 0) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+
+    empty.classList.add('hidden');
+    list.innerHTML = sessions.map((s) => {
+        const mode = s.mode === 'collect' ? '📦' : '🔍';
+        const count = s.mode === 'collect'
+            ? (s.collectedCodes ? s.collectedCodes.length : 0)
+            : (s.foundCodes ? s.foundCodes.length : 0);
+        const total = s.mode === 'collect'
+            ? count
+            : (s.targetCodes ? s.targetCodes.length : 0) + count;
+        const ago = Math.round((Date.now() - s.savedAt) / 60000);
+        const agoText = ago < 1 ? 'just now' : ago < 60 ? `${ago}m ago` : `${Math.round(ago / 60)}h ago`;
+        return `
+        <div class="saved-item" data-id="${s.id}">
+            <div class="saved-item-info">
+                <div class="saved-item-name">${mode} ${escapeHtml(s.name)}</div>
+                <div class="saved-item-meta">${count}/${total} items · ${agoText}</div>
+            </div>
+            <div class="saved-item-actions">
+                <button class="btn btn-success btn-small btn-load-session">LOAD</button>
+                <button class="btn btn-outline btn-small btn-delete-session">✕</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('.btn-load-session').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = Number(btn.closest('.saved-item').dataset.id);
+            const session = getSavedSessions().find((s) => s.id === id);
+            if (session) {
+                restoreSession(session);
+                showScreen('import');
+                if (session.mode === 'collect') {
+                    startScanner();
+                } else {
+                    $('#import-status').classList.remove('hidden');
+                    const total = state.targetCodes.size + state.foundCodes.size;
+                    $('#import-count').textContent = `${total} codes (restored: ${escapeHtml(session.name)})`;
+                    $('#btn-start-scan').classList.remove('hidden');
+                    $('#btn-start-scan').disabled = false;
+                    startScanner();
+                }
+            }
+        });
+    });
+
+    list.querySelectorAll('.btn-delete-session').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = Number(btn.closest('.saved-item').dataset.id);
+            deleteNamedSession(id);
+            renderSavedSessions();
+        });
+    });
+}
+
 // --- DOM refs ---
 const $ = (sel) => document.querySelector(sel);
 const screens = {
@@ -67,6 +166,7 @@ const screens = {
     scanner: $('#screen-scanner'),
     history: $('#screen-history'),
     results: $('#screen-results'),
+    saved: $('#screen-saved'),
 };
 
 // --- Audio ---
@@ -125,9 +225,9 @@ function updateStats() {
         $('#scanner-remaining').textContent = totalScans;
         $('#scanner-total').textContent = collected;
 
-        // Hide remaining card, repurpose total as "scans"
         $('#stat-remaining-card').style.display = 'none';
         $('#stat-total-card').querySelector('.stat-label').textContent = 'Unique';
+        $('#progress-bar-container').classList.add('hidden');
     } else {
         const total = state.targetCodes.size + state.foundCodes.size;
         const found = state.foundCodes.size;
@@ -144,6 +244,16 @@ function updateStats() {
 
         $('#stat-remaining-card').style.display = '';
         $('#stat-total-card').querySelector('.stat-label').textContent = 'Total';
+
+        // Progress bar
+        if (total > 0) {
+            const pct = Math.round((found / total) * 100);
+            $('#progress-bar').style.width = pct + '%';
+            $('#progress-text').textContent = `${found} / ${total} — ${pct}%`;
+            $('#progress-bar-container').classList.remove('hidden');
+        } else {
+            $('#progress-bar-container').classList.add('hidden');
+        }
     }
 }
 
@@ -630,6 +740,65 @@ $('#btn-pause').addEventListener('click', () => {
     $('#btn-pause').classList.toggle('btn-success', state.paused);
 });
 
+$('#btn-saved-lists').addEventListener('click', () => {
+    showScreen('saved');
+    renderSavedSessions();
+});
+
+$('#btn-back-from-saved').addEventListener('click', () => {
+    showScreen('import');
+});
+
+$('#btn-save-session').addEventListener('click', () => {
+    const now = new Date();
+    const defaultName = `Session ${now.toLocaleDateString()} ${now.toLocaleTimeString().slice(0, 5)}`;
+    $('#save-name').value = defaultName;
+    $('#save-dialog').classList.remove('hidden');
+    setTimeout(() => {
+        $('#save-name').focus();
+        $('#save-name').select();
+    }, 100);
+});
+
+$('#btn-save-confirm').addEventListener('click', () => {
+    const name = $('#save-name').value.trim() || 'Unnamed';
+    saveNamedSession(name);
+    $('#save-dialog').classList.add('hidden');
+    flash('green');
+    vibrate([50]);
+});
+
+$('#btn-save-cancel').addEventListener('click', () => {
+    $('#save-dialog').classList.add('hidden');
+});
+
+$('#save-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#btn-save-confirm').click();
+});
+
+$('#btn-manual').addEventListener('click', () => {
+    $('#manual-code').value = '';
+    $('#manual-dialog').classList.remove('hidden');
+    setTimeout(() => $('#manual-code').focus(), 100);
+});
+
+$('#btn-manual-confirm').addEventListener('click', () => {
+    const code = $('#manual-code').value.trim();
+    if (code.length > 0) {
+        state.lastScanTime = 0;
+        onScanSuccess(code);
+    }
+    $('#manual-dialog').classList.add('hidden');
+});
+
+$('#btn-manual-cancel').addEventListener('click', () => {
+    $('#manual-dialog').classList.add('hidden');
+});
+
+$('#manual-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#btn-manual-confirm').click();
+});
+
 $('#btn-history').addEventListener('click', () => {
     showScreen('history');
     renderHistory('all');
@@ -708,7 +877,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v9';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -779,5 +948,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=8').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=9').catch(() => {});
 }
