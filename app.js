@@ -12,6 +12,53 @@ const state = {
 };
 
 const SCAN_COOLDOWN_MS = 1500;
+const STORAGE_KEY = 'scandroid_session';
+
+// --- Session persistence ---
+function saveSession() {
+    try {
+        const data = {
+            mode: state.mode,
+            targetCodes: [...state.targetCodes],
+            foundCodes: [...state.foundCodes],
+            rowData: [...state.rowData],
+            collectedCodes: [...state.collectedCodes],
+            history: state.history,
+            savedAt: Date.now(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (_) {}
+}
+
+function loadSession() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        // Skip sessions older than 24 hours
+        if (Date.now() - data.savedAt > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem(STORAGE_KEY);
+            return null;
+        }
+        return data;
+    } catch (_) {
+        return null;
+    }
+}
+
+function restoreSession(data) {
+    state.mode = data.mode || 'match';
+    state.targetCodes = new Map(data.targetCodes || []);
+    state.foundCodes = new Map(data.foundCodes || []);
+    state.rowData = new Map(data.rowData || []);
+    state.collectedCodes = new Map(data.collectedCodes || []);
+    state.history = data.history || [];
+    updateStats();
+}
+
+function clearSession() {
+    localStorage.removeItem(STORAGE_KEY);
+}
 
 // --- DOM refs ---
 const $ = (sel) => document.querySelector(sel);
@@ -232,6 +279,7 @@ function loadRows(rows) {
     $('#btn-start-scan').disabled = false;
 
     updateStats();
+    saveSession();
 }
 
 // --- Demo mode ---
@@ -366,11 +414,11 @@ function onScanMatch(code, time) {
         showScanResult('not-found', code);
         state.history.unshift({ code, type: 'not-found', time, details: [] });
     }
+    saveSession();
 }
 
 function onScanCollect(code, time) {
     if (state.collectedCodes.has(code)) {
-        // Already scanned — warn but still count
         const count = state.collectedCodes.get(code) + 1;
         state.collectedCodes.set(code, count);
         flash('yellow');
@@ -379,7 +427,6 @@ function onScanCollect(code, time) {
         showScanResult('collected-duplicate', code);
         state.history.unshift({ code, type: 'collected-duplicate', time, details: [`Scan #${count}`] });
     } else {
-        // New code collected
         state.collectedCodes.set(code, 1);
         flash('green');
         soundFound();
@@ -388,6 +435,7 @@ function onScanCollect(code, time) {
         state.history.unshift({ code, type: 'collected', time, details: [] });
     }
     updateStats();
+    saveSession();
 }
 
 // --- History ---
@@ -610,6 +658,7 @@ $('#btn-export-remaining').addEventListener('click', () => {
 });
 
 $('#btn-new-session').addEventListener('click', () => {
+    clearSession();
     state.targetCodes.clear();
     state.foundCodes.clear();
     state.rowData.clear();
@@ -630,7 +679,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -655,7 +704,51 @@ $('#btn-update').addEventListener('click', async () => {
     }
 });
 
+// --- Restore session on load ---
+(function checkSavedSession() {
+    const saved = loadSession();
+    if (!saved) return;
+
+    const hasData = (saved.history && saved.history.length > 0) ||
+        (saved.targetCodes && saved.targetCodes.length > 0) ||
+        (saved.collectedCodes && saved.collectedCodes.length > 0);
+    if (!hasData) return;
+
+    // Build info text
+    const mode = saved.mode === 'collect' ? 'Collect' : 'Match';
+    const foundCount = saved.mode === 'collect'
+        ? (saved.collectedCodes ? saved.collectedCodes.length : 0)
+        : (saved.foundCodes ? saved.foundCodes.length : 0);
+    const histCount = saved.history ? saved.history.length : 0;
+    const ago = Math.round((Date.now() - saved.savedAt) / 60000);
+    const agoText = ago < 1 ? 'just now' : ago < 60 ? `${ago} min ago` : `${Math.round(ago / 60)}h ago`;
+
+    $('#restore-info').textContent = `${mode} mode · ${foundCount} items · ${histCount} scans · ${agoText}`;
+    $('#restore-dialog').classList.remove('hidden');
+
+    $('#btn-restore').addEventListener('click', () => {
+        restoreSession(saved);
+        $('#restore-dialog').classList.add('hidden');
+
+        if (saved.mode === 'collect') {
+            startScanner();
+        } else if (saved.targetCodes && saved.targetCodes.length > 0 || saved.foundCodes && saved.foundCodes.length > 0) {
+            $('#import-status').classList.remove('hidden');
+            const total = state.targetCodes.size + state.foundCodes.size;
+            $('#import-count').textContent = `${total} product codes (restored)`;
+            $('#btn-start-scan').classList.remove('hidden');
+            $('#btn-start-scan').disabled = false;
+            startScanner();
+        }
+    });
+
+    $('#btn-discard').addEventListener('click', () => {
+        clearSession();
+        $('#restore-dialog').classList.add('hidden');
+    });
+})();
+
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=6').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=7').catch(() => {});
 }

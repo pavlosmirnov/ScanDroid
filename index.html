@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <title>ScanDroid</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
     <div id="app">
@@ -19,7 +19,7 @@
         <header id="header">
             <div id="header-left">
                 <h1>ScanDroid</h1>
-                <span id="app-version">v6</span>
+                <span id="app-version">v7</span>
             </div>
             <div id="stats-bar">
                 <span id="stat-total" title="Total">📦 <b>0</b></span>
@@ -165,12 +165,25 @@
             </div>
         </section>
 
+        <!-- Restore session dialog -->
+        <div id="restore-dialog" class="hidden">
+            <div class="dialog-box">
+                <div class="dialog-icon">💾</div>
+                <h3>Session Found</h3>
+                <p id="restore-info"></p>
+                <div class="dialog-buttons">
+                    <button id="btn-restore" class="btn btn-success btn-large">RESTORE</button>
+                    <button id="btn-discard" class="btn btn-outline btn-large">NEW SESSION</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Flash overlay for scan feedback -->
         <div id="flash-overlay" class="hidden"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

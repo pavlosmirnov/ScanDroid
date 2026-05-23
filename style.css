@@ -656,6 +656,56 @@ body {
     background: rgba(255, 214, 0, 0.35);
 }
 
+/* Restore dialog */
+#restore-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.dialog-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 24px;
+    text-align: center;
+    max-width: 340px;
+    width: 100%;
+}
+
+.dialog-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.dialog-box h3 {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.dialog-box p {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.dialog-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dialog-buttons .btn {
+    padding: 14px 24px;
+    font-size: 16px;
+}
+
 /* Utility */
 .hidden {
     display: none !important;
