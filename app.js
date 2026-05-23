@@ -1,8 +1,10 @@
 // --- State ---
 const state = {
+    mode: 'match',            // 'match' or 'collect'
     targetCodes: new Map(),   // code → [col1, col2, col3]
     foundCodes: new Map(),    // code → [col1, col2, col3]
     rowData: new Map(),       // all imported rows: code → [col1, col2, col3]
+    collectedCodes: new Map(),// collect mode: code → count
     history: [],
     scanning: false,
     paused: false,
@@ -63,17 +65,39 @@ function showScreen(name) {
 
 // --- Stats update ---
 function updateStats() {
-    const total = state.targetCodes.size + state.foundCodes.size;
-    const found = state.foundCodes.size;
-    const remaining = state.targetCodes.size;
+    if (state.mode === 'collect') {
+        const collected = state.collectedCodes.size;
+        const totalScans = state.history.length;
 
-    $('#stat-total b').textContent = total;
-    $('#stat-found b').textContent = found;
-    $('#stat-remaining b').textContent = remaining;
+        $('#stat-total b').textContent = collected;
+        $('#stat-found b').textContent = collected;
+        $('#stat-remaining b').textContent = totalScans;
 
-    $('#scanner-found').textContent = found;
-    $('#scanner-remaining').textContent = remaining;
-    $('#scanner-total').textContent = total;
+        $('#scanner-found').textContent = collected;
+        $('#scanner-found-label').textContent = 'Collected';
+        $('#scanner-remaining').textContent = totalScans;
+        $('#scanner-total').textContent = collected;
+
+        // Hide remaining card, repurpose total as "scans"
+        $('#stat-remaining-card').style.display = 'none';
+        $('#stat-total-card').querySelector('.stat-label').textContent = 'Unique';
+    } else {
+        const total = state.targetCodes.size + state.foundCodes.size;
+        const found = state.foundCodes.size;
+        const remaining = state.targetCodes.size;
+
+        $('#stat-total b').textContent = total;
+        $('#stat-found b').textContent = found;
+        $('#stat-remaining b').textContent = remaining;
+
+        $('#scanner-found').textContent = found;
+        $('#scanner-found-label').textContent = 'Found';
+        $('#scanner-remaining').textContent = remaining;
+        $('#scanner-total').textContent = total;
+
+        $('#stat-remaining-card').style.display = '';
+        $('#stat-total-card').querySelector('.stat-label').textContent = 'Total';
+    }
 }
 
 // --- Flash overlay ---
@@ -115,6 +139,16 @@ function showScanResult(type, code) {
         $('#result-status').textContent = 'ALREADY FOUND';
         $('#result-code').textContent = code;
         $('#result-details').innerHTML = detailHtml;
+    } else if (type === 'collected') {
+        $('#result-icon').textContent = '📦';
+        $('#result-status').textContent = 'COLLECTED';
+        $('#result-code').textContent = code;
+        $('#result-details').innerHTML = '';
+    } else if (type === 'collected-duplicate') {
+        $('#result-icon').textContent = '⚠️';
+        $('#result-status').textContent = 'ALREADY SCANNED';
+        $('#result-code').textContent = code;
+        $('#result-details').innerHTML = '';
     }
 
     clearTimeout(resultTimeout);
@@ -300,8 +334,15 @@ function onScanSuccess(decodedText) {
 
     const time = new Date().toLocaleTimeString();
 
+    if (state.mode === 'collect') {
+        onScanCollect(code, time);
+    } else {
+        onScanMatch(code, time);
+    }
+}
+
+function onScanMatch(code, time) {
     if (state.foundCodes.has(code)) {
-        // Duplicate
         flash('yellow');
         soundDuplicate();
         vibrate([50, 30, 50]);
@@ -309,7 +350,6 @@ function onScanSuccess(decodedText) {
         const dupDetails = state.rowData.get(code) || [];
         state.history.unshift({ code, type: 'duplicate', time, details: dupDetails });
     } else if (state.targetCodes.has(code)) {
-        // Found — move from target to found
         const details = state.targetCodes.get(code);
         state.targetCodes.delete(code);
         state.foundCodes.set(code, details);
@@ -320,13 +360,34 @@ function onScanSuccess(decodedText) {
         state.history.unshift({ code, type: 'found', time, details: details || [] });
         updateStats();
     } else {
-        // Not in list
         flash('red');
         soundNotFound();
         vibrate([50, 50, 50]);
         showScanResult('not-found', code);
         state.history.unshift({ code, type: 'not-found', time, details: [] });
     }
+}
+
+function onScanCollect(code, time) {
+    if (state.collectedCodes.has(code)) {
+        // Already scanned — warn but still count
+        const count = state.collectedCodes.get(code) + 1;
+        state.collectedCodes.set(code, count);
+        flash('yellow');
+        soundDuplicate();
+        vibrate([50, 30, 50]);
+        showScanResult('collected-duplicate', code);
+        state.history.unshift({ code, type: 'collected-duplicate', time, details: [`Scan #${count}`] });
+    } else {
+        // New code collected
+        state.collectedCodes.set(code, 1);
+        flash('green');
+        soundFound();
+        vibrate([100]);
+        showScanResult('collected', code);
+        state.history.unshift({ code, type: 'collected', time, details: [] });
+    }
+    updateStats();
 }
 
 // --- History ---
@@ -379,6 +440,14 @@ function formatRowHtml(code, details) {
 function showResults() {
     showScreen('results');
 
+    if (state.mode === 'collect') {
+        showResultsCollect();
+    } else {
+        showResultsMatch();
+    }
+}
+
+function showResultsMatch() {
     const found = [...state.foundCodes];
     const remaining = [...state.targetCodes];
     const notFoundCount = state.history.filter((h) => h.type === 'not-found').length;
@@ -387,9 +456,13 @@ function showResults() {
     $('#final-not-found').textContent = notFoundCount;
     $('#final-remaining').textContent = remaining.length;
 
+    // Show all 3 stat cards
+    document.querySelectorAll('.result-stat').forEach((el) => el.style.display = '');
+
     const foundList = $('#found-list');
     if (found.length > 0) {
         $('#found-list-section').classList.remove('hidden');
+        $('#found-list-section').querySelector('h3').textContent = 'Found Items';
         foundList.innerHTML = found.map(([code, details]) =>
             `<div class="list-item">${formatRowHtml(code, details)}</div>`
         ).join('');
@@ -406,6 +479,36 @@ function showResults() {
     } else {
         $('#remaining-list-section').classList.add('hidden');
     }
+
+    $('#btn-export-found').textContent = 'EXPORT FOUND (CSV)';
+    $('#btn-export-remaining').classList.remove('hidden');
+}
+
+function showResultsCollect() {
+    const collected = [...state.collectedCodes];
+    const dupes = state.history.filter((h) => h.type === 'collected-duplicate').length;
+
+    $('#final-found').textContent = collected.length;
+    $('#final-not-found').textContent = dupes;
+    $('#final-remaining').textContent = state.history.length;
+
+    // Relabel stats
+    const statLabels = document.querySelectorAll('.result-stat-label');
+    statLabels[0].textContent = 'Unique';
+    statLabels[1].textContent = 'Duplicates';
+    statLabels[2].textContent = 'Total Scans';
+
+    const foundList = $('#found-list');
+    $('#found-list-section').classList.remove('hidden');
+    $('#found-list-section').querySelector('h3').textContent = 'Collected Items';
+    foundList.innerHTML = collected.map(([code, count]) =>
+        `<div class="list-item">${escapeHtml(code)}${count > 1 ? ` <span class="list-detail">×${count}</span>` : ''}</div>`
+    ).join('');
+
+    $('#remaining-list-section').classList.add('hidden');
+
+    $('#btn-export-found').textContent = 'EXPORT COLLECTED (CSV)';
+    $('#btn-export-remaining').classList.add('hidden');
 }
 
 // --- Export ---
@@ -426,6 +529,22 @@ function exportCSV(dataMap, filename) {
     URL.revokeObjectURL(url);
 }
 
+function exportCollectedCSV() {
+    const bom = '﻿';
+    const lines = ['Code,Count'];
+    for (const [code, count] of state.collectedCodes) {
+        lines.push(`"${code.replace(/"/g, '""')}",${count}`);
+    }
+    const csv = bom + lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'collected_products.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 // --- Event listeners ---
 $('#file-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -434,7 +553,17 @@ $('#file-input').addEventListener('change', (e) => {
 
 $('#btn-demo').addEventListener('click', () => loadDemo());
 
-$('#btn-start-scan').addEventListener('click', () => startScanner());
+$('#btn-start-scan').addEventListener('click', () => {
+    state.mode = 'match';
+    startScanner();
+});
+
+$('#btn-collect').addEventListener('click', () => {
+    state.mode = 'collect';
+    state.collectedCodes = new Map();
+    state.history = [];
+    startScanner();
+});
 
 $('#btn-pause').addEventListener('click', () => {
     state.paused = !state.paused;
@@ -469,7 +598,11 @@ $('#btn-finish').addEventListener('click', async () => {
 });
 
 $('#btn-export-found').addEventListener('click', () => {
-    exportCSV(state.foundCodes, 'found_products.csv');
+    if (state.mode === 'collect') {
+        exportCollectedCSV();
+    } else {
+        exportCSV(state.foundCodes, 'found_products.csv');
+    }
 });
 
 $('#btn-export-remaining').addEventListener('click', () => {
@@ -480,7 +613,9 @@ $('#btn-new-session').addEventListener('click', () => {
     state.targetCodes.clear();
     state.foundCodes.clear();
     state.rowData.clear();
+    state.collectedCodes.clear();
     state.history = [];
+    state.mode = 'match';
     state.lastScanTime = 0;
 
     $('#import-status').classList.add('hidden');

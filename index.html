@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <title>ScanDroid</title>
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
     <div id="app">
@@ -29,25 +29,40 @@
         <section id="screen-import" class="screen active">
             <div class="screen-content">
                 <div class="import-icon">📋</div>
-                <h2>Import Target List</h2>
-                <p class="hint">Upload .xlsx or .csv file with product codes in the first column</p>
+                <h2>Select Mode</h2>
 
-                <label for="file-input" class="btn btn-primary btn-large">
-                    SELECT FILE
-                </label>
-                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" hidden>
+                <div class="mode-section">
+                    <h3 class="mode-title">🔍 Match Mode</h3>
+                    <p class="hint">Import a list, then scan to find matching items</p>
 
-                <div id="import-status" class="hidden">
-                    <div id="import-count"></div>
+                    <label for="file-input" class="btn btn-primary btn-large">
+                        SELECT FILE
+                    </label>
+                    <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.tsv" hidden>
+
+                    <div id="import-status" class="hidden">
+                        <div id="import-count"></div>
+                    </div>
+
+                    <button id="btn-start-scan" class="btn btn-success btn-large hidden" disabled>
+                        START MATCHING
+                    </button>
                 </div>
 
-                <button id="btn-start-scan" class="btn btn-success btn-large hidden" disabled>
-                    START SCANNING
-                </button>
+                <div class="mode-divider">OR</div>
+
+                <div class="mode-section">
+                    <h3 class="mode-title">📦 Collect Mode</h3>
+                    <p class="hint">Scan barcodes and collect them into a list for export</p>
+
+                    <button id="btn-collect" class="btn btn-collect btn-large">
+                        START COLLECTING
+                    </button>
+                </div>
 
                 <div id="demo-section">
                     <button id="btn-demo" class="btn btn-outline btn-small">
-                        DEMO MODE (no file)
+                        DEMO MODE (match)
                     </button>
                 </div>
             </div>
@@ -74,13 +89,13 @@
             <div id="scanner-stats">
                 <div class="stat-card">
                     <div class="stat-value" id="scanner-found">0</div>
-                    <div class="stat-label">Found</div>
+                    <div class="stat-label" id="scanner-found-label">Found</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" id="stat-remaining-card">
                     <div class="stat-value" id="scanner-remaining">0</div>
                     <div class="stat-label">Remaining</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" id="stat-total-card">
                     <div class="stat-value" id="scanner-total">0</div>
                     <div class="stat-label">Total</div>
                 </div>
@@ -152,6 +167,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>
