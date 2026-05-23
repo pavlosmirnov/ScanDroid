@@ -159,6 +159,32 @@ function renderSavedSessions() {
     });
 }
 
+// --- Undo / Remove ---
+function undoScan(code, type) {
+    if (state.mode === 'collect') {
+        if (type === 'collected') {
+            state.collectedCodes.delete(code);
+        } else if (type === 'collected-duplicate') {
+            const count = state.collectedCodes.get(code);
+            if (count && count > 1) state.collectedCodes.set(code, count - 1);
+            else state.collectedCodes.delete(code);
+        }
+    } else {
+        if (type === 'found') {
+            // Move back from found to target
+            const details = state.foundCodes.get(code);
+            state.foundCodes.delete(code);
+            state.targetCodes.set(code, details || []);
+        }
+    }
+    // Remove first matching history entry
+    const idx = state.history.findIndex((h) => h.code === code && h.type === type);
+    if (idx >= 0) state.history.splice(idx, 1);
+
+    updateStats();
+    saveSession();
+}
+
 // --- DOM refs ---
 const $ = (sel) => document.querySelector(sel);
 const screens = {
@@ -308,10 +334,23 @@ function showScanResult(type, code) {
         $('#result-details').innerHTML = '';
     }
 
+    // Show UNDO for found/collected (not for not-found or duplicate)
+    const undoBtn = $('#btn-undo');
+    if (type === 'found' || type === 'collected') {
+        undoBtn.classList.remove('hidden');
+        undoBtn.onclick = () => {
+            undoScan(code, type);
+            el.className = 'scan-result hidden';
+            clearTimeout(resultTimeout);
+        };
+    } else {
+        undoBtn.classList.add('hidden');
+    }
+
     clearTimeout(resultTimeout);
     resultTimeout = setTimeout(() => {
         el.className = 'scan-result hidden';
-    }, 3000);
+    }, 4000);
 }
 
 // --- File import ---
@@ -562,9 +601,13 @@ function renderHistory(filter = 'all') {
 
     list.innerHTML = items
         .map(
-            (h) => {
+            (h, i) => {
                 const detailStr = (h.details && h.details.length > 0)
                     ? `<div class="history-details">${h.details.map((d) => escapeHtml(d)).join(' · ')}</div>`
+                    : '';
+                const canRemove = (h.type === 'found' || h.type === 'collected');
+                const removeBtn = canRemove
+                    ? `<button class="btn-remove-item" data-code="${escapeHtml(h.code)}" data-type="${h.type}" title="Remove">✕</button>`
                     : '';
                 return `
         <div class="history-item type-${h.type}">
@@ -574,10 +617,21 @@ function renderHistory(filter = 'all') {
                 ${detailStr}
             </div>
             <div class="history-time">${h.time}</div>
+            ${removeBtn}
         </div>`;
             }
         )
         .join('');
+
+    // Attach remove handlers
+    list.querySelectorAll('.btn-remove-item').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const code = btn.dataset.code;
+            const type = btn.dataset.type;
+            undoScan(code, type);
+            renderHistory(filter);
+        });
+    });
 }
 
 function escapeHtml(text) {
@@ -878,7 +932,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v11';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -949,5 +1003,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=10').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=11').catch(() => {});
 }
