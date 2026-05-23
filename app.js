@@ -932,7 +932,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -1003,5 +1003,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=11').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=12').catch(() => {});
 }
