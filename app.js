@@ -560,35 +560,45 @@ function showResultsCollect() {
 }
 
 // --- Export ---
-function exportCSV(dataMap, filename) {
+let pendingExportBlob = null;
+
+function buildCSVBlob(dataMap) {
     const bom = '﻿';
     const lines = ['Code,Column 2,Column 3'];
     for (const [code, details] of dataMap) {
         const cols = [code, ...(details || [])];
         lines.push(cols.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','));
     }
-    const csv = bom + lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    return new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
 }
 
-function exportCollectedCSV() {
+function buildCollectedCSVBlob() {
     const bom = '﻿';
     const lines = ['Code,Count'];
     for (const [code, count] of state.collectedCodes) {
         lines.push(`"${code.replace(/"/g, '""')}",${count}`);
     }
-    const csv = bom + lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    return new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+}
+
+function showExportDialog(defaultName, itemCount, blob) {
+    pendingExportBlob = blob;
+    $('#export-info').textContent = `${itemCount} items will be exported`;
+    $('#export-filename').value = defaultName;
+    $('#export-dialog').classList.remove('hidden');
+    setTimeout(() => {
+        const input = $('#export-filename');
+        input.focus();
+        input.select();
+    }, 100);
+}
+
+function downloadBlob(blob, filename) {
+    const name = filename.endsWith('.csv') ? filename : filename + '.csv';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'collected_products.csv';
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -647,14 +657,33 @@ $('#btn-finish').addEventListener('click', async () => {
 
 $('#btn-export-found').addEventListener('click', () => {
     if (state.mode === 'collect') {
-        exportCollectedCSV();
+        const blob = buildCollectedCSVBlob();
+        showExportDialog('collected', state.collectedCodes.size, blob);
     } else {
-        exportCSV(state.foundCodes, 'found_products.csv');
+        const blob = buildCSVBlob(state.foundCodes);
+        showExportDialog('found', state.foundCodes.size, blob);
     }
 });
 
 $('#btn-export-remaining').addEventListener('click', () => {
-    exportCSV(state.targetCodes, 'remaining_products.csv');
+    const blob = buildCSVBlob(state.targetCodes);
+    showExportDialog('remaining', state.targetCodes.size, blob);
+});
+
+$('#btn-export-confirm').addEventListener('click', () => {
+    const filename = $('#export-filename').value.trim() || 'export';
+    if (pendingExportBlob) downloadBlob(pendingExportBlob, filename);
+    pendingExportBlob = null;
+    $('#export-dialog').classList.add('hidden');
+});
+
+$('#btn-export-cancel').addEventListener('click', () => {
+    pendingExportBlob = null;
+    $('#export-dialog').classList.add('hidden');
+});
+
+$('#export-filename').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#btn-export-confirm').click();
 });
 
 $('#btn-new-session').addEventListener('click', () => {
@@ -679,7 +708,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v7';
+const APP_VERSION = 'v8';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -750,5 +779,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=7').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=8').catch(() => {});
 }
