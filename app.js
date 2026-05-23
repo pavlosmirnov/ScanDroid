@@ -629,16 +629,33 @@ $('#btn-new-session').addEventListener('click', () => {
     showScreen('import');
 });
 
+// --- App version ---
+const APP_VERSION = 'v6';
+
+// --- Update button ---
+$('#btn-update').addEventListener('click', async () => {
+    const btn = $('#btn-update');
+    btn.classList.add('spinning');
+
+    try {
+        // 1. Unregister all service workers
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+
+        // 2. Clear all caches
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+
+        // 3. Reload from network
+        btn.classList.remove('spinning');
+        window.location.reload(true);
+    } catch (e) {
+        btn.classList.remove('spinning');
+        window.location.reload(true);
+    }
+});
+
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    // Force update: unregister old SW, register with cache-bust
-    navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.unregister());
-    }).then(() => {
-        return caches.keys();
-    }).then((keys) => {
-        return Promise.all(keys.map((k) => caches.delete(k)));
-    }).then(() => {
-        navigator.serviceWorker.register('sw.js?v=4');
-    }).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=6').catch(() => {});
 }
