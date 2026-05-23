@@ -631,5 +631,14 @@ $('#btn-new-session').addEventListener('click', () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // Force update: unregister old SW, register with cache-bust
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+    }).then(() => {
+        return caches.keys();
+    }).then((keys) => {
+        return Promise.all(keys.map((k) => caches.delete(k)));
+    }).then(() => {
+        navigator.serviceWorker.register('sw.js?v=4');
+    }).catch(() => {});
 }
