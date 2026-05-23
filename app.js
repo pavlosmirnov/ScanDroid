@@ -231,10 +231,59 @@ function vibrate(pattern) {
 }
 
 // --- Screen navigation ---
-function showScreen(name) {
+let currentScreen = 'import';
+
+function showScreen(name, addHistory = true) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
+
+    if (addHistory && name !== currentScreen) {
+        history.pushState({ screen: name }, '', '');
+    }
+    currentScreen = name;
 }
+
+// Close any open dialog, returns true if one was closed
+function closeAnyDialog() {
+    const dialogs = ['#manual-dialog', '#save-dialog', '#export-dialog', '#restore-dialog'];
+    for (const sel of dialogs) {
+        const el = document.querySelector(sel);
+        if (el && !el.classList.contains('hidden')) {
+            el.classList.add('hidden');
+            return true;
+        }
+    }
+    return false;
+}
+
+// Android back button / browser back
+window.addEventListener('popstate', (e) => {
+    // First try closing a dialog
+    if (closeAnyDialog()) {
+        // Re-push state so we don't lose position
+        history.pushState({ screen: currentScreen }, '', '');
+        return;
+    }
+
+    // Navigate between screens
+    if (currentScreen === 'history') {
+        showScreen('scanner', false);
+    } else if (currentScreen === 'saved') {
+        showScreen('import', false);
+    } else if (currentScreen === 'results') {
+        showScreen('import', false);
+    } else if (currentScreen === 'scanner') {
+        // Don't exit — stay on scanner, re-push state
+        history.pushState({ screen: 'scanner' }, '', '');
+    } else {
+        // On import screen — push state to prevent exit
+        history.pushState({ screen: 'import' }, '', '');
+    }
+});
+
+// Seed initial history entry so first back press doesn't exit
+history.replaceState({ screen: 'import' }, '', '');
+history.pushState({ screen: 'import' }, '', '');
 
 // --- Stats update ---
 function updateStats() {
@@ -932,7 +981,7 @@ $('#btn-new-session').addEventListener('click', () => {
 });
 
 // --- App version ---
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v13';
 
 // --- Update button ---
 $('#btn-update').addEventListener('click', async () => {
@@ -1003,5 +1052,5 @@ $('#btn-update').addEventListener('click', async () => {
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=12').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=13').catch(() => {});
 }
